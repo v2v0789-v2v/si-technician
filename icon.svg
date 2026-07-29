@@ -1,0 +1,75 @@
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/db";
+import { inquiries } from "@/db/schema";
+
+export const dynamic = "force-dynamic";
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = (await req.json().catch(() => null)) as {
+      name?: string;
+      phone?: string;
+      email?: string;
+      message?: string;
+    } | null;
+
+    if (!body) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid request body." },
+        { status: 400 },
+      );
+    }
+
+    const name = String(body.name ?? "").trim();
+    const phone = String(body.phone ?? "").trim();
+    const email = String(body.email ?? "").trim();
+    const message = String(body.message ?? "").trim();
+
+    if (name.length < 2) {
+      return NextResponse.json(
+        { ok: false, error: "Please enter your full name." },
+        { status: 400 },
+      );
+    }
+
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length < 10 || digits.length > 13) {
+      return NextResponse.json(
+        { ok: false, error: "Please enter a valid mobile number." },
+        { status: 400 },
+      );
+    }
+
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json(
+        { ok: false, error: "Please enter a valid email address." },
+        { status: 400 },
+      );
+    }
+
+    if (message.length < 10) {
+      return NextResponse.json(
+        { ok: false, error: "Message should be at least 10 characters." },
+        { status: 400 },
+      );
+    }
+
+    await db.insert(inquiries).values({
+      name,
+      phone,
+      email: email || null,
+      message,
+    });
+
+    return NextResponse.json({
+      ok: true,
+      message: "Request received. We'll call you back shortly!",
+    });
+  } catch (error) {
+    console.error("[/api/contact] failed:", error);
+    return NextResponse.json(
+      { ok: false, error: "Something went wrong. Please try WhatsApp or call." },
+      { status: 500 },
+    );
+  }
+}
